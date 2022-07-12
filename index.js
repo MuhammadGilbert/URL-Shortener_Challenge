@@ -2,6 +2,24 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
+const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
+const mongo = require('mongodb')
+const dns = require('dns')
+
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+const { Schema } = mongoose;
+const { model } = mongoose;
+
+const urlSchema = new Schema({
+  longurl: {type: String, required: true}
+});
+
+const Url = model("Url", urlSchema);
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -17,6 +35,30 @@ app.get('/', function(req, res) {
 // Your first API endpoint
 app.get('/api/hello', function(req, res) {
   res.json({ greeting: 'hello API' });
+});
+
+app.post('/api/shorturl', bodyParser.urlencoded({ extended: false }), async (req, res) => {
+  if (req.body.url.toString().match('/^https:/')){
+    const newurl = await new Url({
+      longurl: req.body.url
+    })
+
+  const shorturl = await newurl.save();
+  res.json({original_url: req.body.url, short_url: shorturl._id});
+  } else {
+    res.json({error: "invalid url"});
+  }
+})
+
+app.get('/api/shorturl/short:', (req, res) => {
+  function getShortUrl(){ 
+    Url.findById(req.params.short).limit(1).exec((err, data) => {
+      if(err) return console.log(err);
+      console.log(data);
+      res.redirect(data.longurl)
+    });
+  }
+  getShortUrl();
 });
 
 app.listen(port, function() {
